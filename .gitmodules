@@ -1,0 +1,3 @@
+[submodule "src/libbcc"]
+	path = src/libbcc
+	url = https://github.com/iovisor/bcc
