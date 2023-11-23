@@ -6,49 +6,45 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+#define ENOBUFS 105
+
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024);
 } rb SEC(".maps");
 
-SEC("tp/syscalls/sys_enter_connect")
-int handle_connect_tp(struct trace_event_raw_sys_enter *ctx) {
-    u32 socklen = (u32)ctx->args[2];
-    u32 fd = (u32)ctx->args[1];
-    u32 len = MAX_SOCKADDR_LEN > socklen ? socklen : MAX_SOCKADDR_LEN;
+SEC("lsm/socket_connect")
+int BPF_PROG(socket_connect_tracker, struct socket *sock, struct sockaddr* address, int socklen, int ret) {
+    if(socklen > 0 && socklen < MAX_SOCKADDR_LEN) {
+        struct connection_event* reserve_ptr = bpf_ringbuf_reserve(&rb, 
+                sizeof(struct connection_event)+MAX_SOCKADDR_LEN, 0);
+        if(!reserve_ptr) {
+            bpf_printk("Failed to reserve ringbuf data\n");
+            return -ENOBUFS;
+        }
 
-    struct connection_event* reserve_ptr = bpf_ringbuf_reserve(&rb, 
-            sizeof(struct connection_event)+MAX_SOCKADDR_LEN, 0);
-    if(!reserve_ptr) {
-        bpf_printk("Failed to reserve ringbuf data\n");
-        return 0;
-    }
+        long err = bpf_probe_read_kernel(
+                &reserve_ptr->sockaddr, 
+                MAX_SOCKADDR_LEN,
+                (void*)address);
+        if(err < 0) {
+            bpf_printk("Failed to read from kernelspace %ld.\n", err);
+            bpf_ringbuf_discard(reserve_ptr, 0);
+            return -ENOBUFS;
+        }
+        if(reserve_ptr->sockaddr.sa_family == 0) {  // AF_UNSPEC
+            bpf_ringbuf_discard(reserve_ptr, 0);
+            return ret;
+        }
 
-    //bpf_sock_from_file
-    //track time
-    struct task_struct* task = (struct task_struct*)bpf_get_current_task();
-    struct fdtable* table = BPF_CORE_READ(task, files, fdt);
-    void* pd = (*(table[fd].fd))->private_data;
+        reserve_ptr->pid = bpf_get_current_pid_tgid() >> 32;
+        reserve_ptr->sock_type = sock->type;
+        bpf_get_current_comm(&reserve_ptr->comm, sizeof(reserve_ptr->comm));
 
-    long err = bpf_probe_read_user(
-            &reserve_ptr->sockaddr, 
-            len, 
-            (void*)ctx->args[1]);
-    if(err != 0) {
-        bpf_printk("Failed to read from userspace %ld.\n", err);
-        bpf_ringbuf_discard(reserve_ptr, 0);
-        return 0;
-    }
-    if(reserve_ptr->sockaddr.sa_family == 0) {  // AF_UNSPEC
-        bpf_ringbuf_discard(reserve_ptr, 0);
-        return 0;
-    }
-
-    reserve_ptr->pid = bpf_get_current_pid_tgid() >> 32;
-    bpf_get_current_comm(&reserve_ptr->comm, sizeof(reserve_ptr->comm));
-
-    bpf_ringbuf_submit(reserve_ptr, 0);
-    return 0;
+        bpf_ringbuf_submit(reserve_ptr, 0);
+        bpf_printk("%d\n", sock->type);
+    } 
+    return ret;
 }
 
 //SEC("tp/sched/sched_process_exec")

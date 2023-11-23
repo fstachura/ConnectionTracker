@@ -7,6 +7,8 @@
 #include <vector>
 #include <arpa/inet.h>
 
+const std::string sock_type_to_string(short);
+
 class Address {
 public:
     virtual std::string to_string() = 0;

@@ -15,13 +15,14 @@
 struct ConnectionEvent {
     int pid;
     std::array<char, 16> comm;
+    short sock_type;
     std::unique_ptr<ConnectionTarget> target;
 
-    ConnectionEvent(int pid, std::array<char, 16> comm, std::unique_ptr<ConnectionTarget> target): 
-        pid(pid), comm(comm), target(target->clone()) {
+    ConnectionEvent(int pid, std::array<char, 16> comm, short sock_type, std::unique_ptr<ConnectionTarget> target): 
+        pid(pid), comm(comm), sock_type(sock_type), target(target->clone()) {
     }
 
-    ConnectionEvent(const ConnectionEvent& event): pid(event.pid), comm(event.comm) {
+    ConnectionEvent(const ConnectionEvent& event): pid(event.pid), comm(event.comm), sock_type(event.sock_type) {
         target = event.target->clone();
     }
 };

@@ -1,7 +1,7 @@
 #ifndef __TRACKERS_H
 #define __TRACKERS_H
 
-#define MAX_SOCKADDR_LEN 256
+#define MAX_SOCKADDR_LEN sizeof(struct __kernel_sockaddr_storage)
 
 struct connection_event_sockaddr {
    sa_family_t sa_family;
@@ -11,6 +11,7 @@ struct connection_event_sockaddr {
 struct connection_event {
    int pid;
    char comm[16];
+   short sock_type;
    struct connection_event_sockaddr sockaddr;
 };
 

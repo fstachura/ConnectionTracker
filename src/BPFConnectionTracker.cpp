@@ -54,7 +54,7 @@ int BPFConnectionTracker::handle_event(void* data, size_t data_sz) {
 
     std::array<char, 16> comm;
     std::copy(e->comm, e->comm+16, comm.begin());
-    ConnectionEvent event(e->pid, comm, target->clone());
+    ConnectionEvent event(e->pid, comm, e->sock_type, target->clone());
 
     publish(event);
 

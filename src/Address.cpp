@@ -109,6 +109,26 @@ const std::string to_string(sa_family_t family) {
     }
 }
 
+const std::string sock_type_to_string(short sock_type) {
+    if(sock_type == 1) {
+        return "SOCK_STREAM";
+    } else if(sock_type == 2) {
+        return "SOCK_DGRAM";
+    } else if(sock_type == 3) {
+        return "SOCK_RAW";
+    } else if(sock_type == 4) {
+        return "SOCK_RDM";
+    } else if(sock_type == 5) {
+        return "SOCK_SEQPACKET";
+    } else if(sock_type == 6) {
+        return "SOCK_DCCP";
+    } else if(sock_type == 10) {
+        return "SOCK_PACKET";
+    } else {
+        return "unknown";
+    }
+}
+
 UnixAddress::UnixAddress(std::string data): data(data) {}
 
 UnixAddress::~UnixAddress() {}
