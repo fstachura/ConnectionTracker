@@ -54,7 +54,8 @@ int BPFConnectionTracker::handle_event(void* data, size_t data_sz) {
 
     std::array<char, 16> comm;
     std::copy(e->comm, e->comm+16, comm.begin());
-    ConnectionEvent event(e->pid, comm, e->sock_type, target->clone());
+    // TODO convert boottime to approximate wall clock timestamp by adding btime from /proc/stat
+    ConnectionEvent event(e->pid, comm, e->sock_type, target->clone(), e->boottime);
 
     publish(event);
 

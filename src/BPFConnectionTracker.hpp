@@ -12,6 +12,7 @@ class BPFConnectionTracker: public ConnectionTrackerBase {
     bool quit = false;
     static int ring_buffer_callback(void* tracker, void* data, size_t data_sz);
     int handle_event(void* data, size_t data_sz);
+    uint64_t time_since_boot;
 
 public:
     virtual void start();

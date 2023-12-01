@@ -39,6 +39,7 @@ int BPF_PROG(socket_connect_tracker, struct socket *sock, struct sockaddr* addre
 
         reserve_ptr->pid = bpf_get_current_pid_tgid() >> 32;
         reserve_ptr->sock_type = sock->type;
+        reserve_ptr->boottime = bpf_ktime_get_boot_ns();
         bpf_get_current_comm(&reserve_ptr->comm, sizeof(reserve_ptr->comm));
 
         bpf_ringbuf_submit(reserve_ptr, 0);
@@ -51,7 +52,7 @@ int BPF_PROG(socket_connect_tracker, struct socket *sock, struct sockaddr* addre
 //int handle_exec_tp(struct trace_event_raw_sched_process_exec* ctx) {
 //    return 0;
 //}
-//
+
 //SEC("tp/syscalls/sched_process_fork") 
 //int handle_fork_tp(struct trace_event_raw_sched_process_fork* ctx) {
 //    return 0;

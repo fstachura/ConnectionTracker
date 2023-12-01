@@ -12,6 +12,7 @@ struct connection_event {
    int pid;
    char comm[16];
    short sock_type;
+   uint64_t boottime;
    struct connection_event_sockaddr sockaddr;
 };
 

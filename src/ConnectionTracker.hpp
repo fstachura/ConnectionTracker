@@ -10,6 +10,7 @@
 #include <vector>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <time.h>
 #include "Address.hpp"
 
 struct ConnectionEvent {
@@ -17,9 +18,11 @@ struct ConnectionEvent {
     std::array<char, 16> comm;
     short sock_type;
     std::unique_ptr<ConnectionTarget> target;
+    uint64_t timestamp;
 
-    ConnectionEvent(int pid, std::array<char, 16> comm, short sock_type, std::unique_ptr<ConnectionTarget> target): 
-        pid(pid), comm(comm), sock_type(sock_type), target(target->clone()) {
+    ConnectionEvent(int pid, std::array<char, 16> comm, 
+        short sock_type, std::unique_ptr<ConnectionTarget> target, uint64_t timestamp): 
+        pid(pid), comm(comm), sock_type(sock_type), target(target->clone()), timestamp(timestamp) {
     }
 
     ConnectionEvent(const ConnectionEvent& event): pid(event.pid), comm(event.comm), sock_type(event.sock_type) {
