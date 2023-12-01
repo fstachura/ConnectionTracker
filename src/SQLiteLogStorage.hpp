@@ -7,8 +7,8 @@
 #include "SQLite.hpp"
 
 class SQLiteLogStorage: public LogStorage {
-    sqlite3* db = nullptr;
-    sqlite3_stmt* insert_stmt = nullptr;
+    SQLite db;
+    std::optional<SQLiteStatement> insertStmt;
 
     void createDb();
     int checkSqliteErr(int result);

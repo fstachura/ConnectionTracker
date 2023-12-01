@@ -25,99 +25,30 @@ const char DB_INSERT_CONNECTION[] = R"""(
     );
 )""";
 
-SQLiteException::SQLiteException(int errcode, std::string msg): errcode(errcode), msg(msg) { }
-
-const char* SQLiteException::what() const noexcept {
-    return msg.c_str();
-}
-
-int SQLiteException::getErrcode() const noexcept {
-    return errcode;
-}
-
-SQLiteLogStorage::SQLiteLogStorage(std::string path) {
-    checkSqliteErr(sqlite3_open(path.c_str(), &db));
+SQLiteLogStorage::SQLiteLogStorage(std::string path): db(path) {
     createDb();
-    checkSqliteErr(sqlite3_prepare_v2(db, DB_INSERT_CONNECTION, sizeof(DB_INSERT_CONNECTION), &insert_stmt, NULL));
-}
-
-int SQLiteLogStorage::checkSqliteErr(int result) {
-    if(result != SQLITE_OK && result != SQLITE_DONE) {
-        throw SQLiteException(result, sqlite3_errmsg(db));
-    }
-    return result;
-}
-
-int SQLiteLogStorage::stepUntilDone(sqlite3_stmt* stmt) {
-    while(true) {
-        int result = sqlite3_step(stmt);
-        if(result == SQLITE_OK || result == SQLITE_DONE || result == SQLITE_EMPTY) {
-            return result;
-        }
-        checkSqliteErr(result);
-    }
+    insertStmt = db.prepareOne(DB_INSERT_CONNECTION).first;
 }
 
 void SQLiteLogStorage::createDb() {
-    sqlite3_stmt* stmt;
-    checkSqliteErr(sqlite3_prepare_v2(db, DB_INIT_SQL, sizeof(DB_INIT_SQL), &stmt, NULL));
-    stepUntilDone(stmt);
-    checkSqliteErr(sqlite3_finalize(stmt));
+    db.prepareOne(DB_INSERT_CONNECTION).first.exec();
 }
 
 void SQLiteLogStorage::logConnection(ConnectionEvent event) {
-    checkSqliteErr(sqlite3_reset(insert_stmt));
-    checkSqliteErr(sqlite3_bind_text(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":comm"),
-        event.comm.data(),
-        event.comm.size(),
-        NULL
-    ));
-    checkSqliteErr(sqlite3_bind_int64(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":pid"),
-        event.pid
-    ));
-    checkSqliteErr(sqlite3_bind_int(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":sock_type"),
-        event.sock_type
-    ));
-    checkSqliteErr(sqlite3_bind_int(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":target_type"),
-        0
-    ));
-    checkSqliteErr(sqlite3_bind_zeroblob(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":target_data"),
-        0
-    ));
-    //:target_type
-    //checkSqliteErr(sqlite3_bind_int(
-    //    insert_stmt, 
-    //    sqlite3_bind_parameter_index(insert_stmt, "sock_type"),
-    //    event.sock_type
-    //));
-    //TODO store target blob too
-    auto target_str = event.target->to_string();
-    checkSqliteErr(sqlite3_bind_text(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":target_text"),
-        target_str.c_str(),
-        target_str.size(),
-        NULL
-    ));
-    checkSqliteErr(sqlite3_bind_int64(
-        insert_stmt, 
-        sqlite3_bind_parameter_index(insert_stmt, ":timestamp"),
-        event.timestamp
-    ));
-    stepUntilDone(insert_stmt);
+    insertStmt
+        .value()
+        .bind(":comm", std::string(event.comm.data(), 16))
+        .bind(":pid", event.pid)
+        .bind(":sock_type", event.sock_type)
+        //TODO
+        .bind(":target_type", 0)
+        //TODO store target blob 
+        //.bind(":sock_type", event.sock_type)
+        .bind(":target_data", nullptr)
+        .bind(":target_text", event.target->to_string())
+        .bind<long>(":timestamp", event.timestamp)
+        .exec();
+
 } 
 
-SQLiteLogStorage::~SQLiteLogStorage() {
-    sqlite3_close(db);
-    sqlite3_finalize(insert_stmt);
-}
+SQLiteLogStorage::~SQLiteLogStorage() {}
