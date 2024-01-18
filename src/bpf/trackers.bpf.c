@@ -10,7 +10,7 @@ char LICENSE[] SEC("license") = "GPL";
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 256 * 1024);
+    __uint(max_entries, 256 * sizeof(struct connection_event));
 } rb SEC(".maps");
 
 SEC("lsm/socket_connect")
@@ -42,10 +42,17 @@ int BPF_PROG(socket_connect_tracker, struct socket *sock, struct sockaddr* addre
         reserve_ptr->boottime = bpf_ktime_get_boot_ns();
         bpf_get_current_comm(&reserve_ptr->comm, sizeof(reserve_ptr->comm));
 
+        struct task_struct* task = bpf_get_current_task_btf();
+        size_t size = task->mm->arg_end-task->mm->arg_start;
+        bpf_probe_read_user(&reserve_ptr->cmdline, size > MAX_CMDLINE_SIZE ? MAX_CMDLINE_SIZE : size, 
+                (const void*)task->mm->arg_start);
+        reserve_ptr->cmdline_size = size;
+
         bpf_ringbuf_submit(reserve_ptr, 0);
-        bpf_printk("%d\n", sock->type);
-    } 
-    return ret;
+        return ret;
+    } else {
+        return -ENOBUFS;
+    }
 }
 
 //SEC("tp/sched/sched_process_exec")
@@ -53,6 +60,7 @@ int BPF_PROG(socket_connect_tracker, struct socket *sock, struct sockaddr* addre
 //    return 0;
 //}
 
+// task_alloc
 //SEC("tp/syscalls/sched_process_fork") 
 //int handle_fork_tp(struct trace_event_raw_sched_process_fork* ctx) {
 //    return 0;

@@ -19,13 +19,17 @@ struct ConnectionEvent {
     short sock_type;
     std::unique_ptr<ConnectionTarget> target;
     uint64_t timestamp;
+    std::vector<std::string> cmdline;
 
     ConnectionEvent(int pid, std::array<char, 16> comm, 
-        short sock_type, std::unique_ptr<ConnectionTarget> target, uint64_t timestamp): 
-        pid(pid), comm(comm), sock_type(sock_type), target(target->clone()), timestamp(timestamp) {
+        short sock_type, std::unique_ptr<ConnectionTarget> target, uint64_t timestamp, 
+        std::vector<std::string> cmdline): 
+            pid(pid), comm(comm), sock_type(sock_type), target(target->clone()), timestamp(timestamp),
+        cmdline(cmdline) {
     }
 
-    ConnectionEvent(const ConnectionEvent& event): pid(event.pid), comm(event.comm), sock_type(event.sock_type) {
+    ConnectionEvent(const ConnectionEvent& event): 
+        pid(event.pid), comm(event.comm), sock_type(event.sock_type), cmdline(event.cmdline) {
         target = event.target->clone();
     }
 };

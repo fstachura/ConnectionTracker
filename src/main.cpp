@@ -10,6 +10,7 @@
 #include "Address.hpp"
 #include "ConnectionTracker.hpp"
 #include "LogStorage.hpp"
+#include "SQLite.hpp"
 #include "SQLiteLogStorage.hpp"
 
 typedef unsigned long long u64;
@@ -19,8 +20,14 @@ class StdoutConnectionSubsciber: public ConnectionSubscriber {
         std::string comm(event.comm.begin(), event.comm.end());
         auto t = std::time(nullptr);
         std::tm tm = *std::localtime(&t);
-        std::cout<<"["<<std::put_time(&tm, "%F %T")<<"] "<<comm<<" "<<event.pid<<" "<<event.target->to_string()
-            <<" ("<<sock_type_to_string(event.sock_type)<<")"<<std::endl;
+        std::cout<<"["<<std::put_time(&tm, "%F %T")<<"] "<<comm<<" "<<event.pid<<" (";
+        for(auto& c: event.cmdline) {
+            std::cout<<c;
+            if(c != *(event.cmdline.end()-1)) {
+                std::cout<<" ";
+            }
+        }
+        std::cout<<") "<<event.target->to_string()<<" ("<<sock_type_to_string(event.sock_type)<<")"<<std::endl;
     }
 };
 

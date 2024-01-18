@@ -1,4 +1,5 @@
 #include <exception>
+#include <algorithm>
 #include <array>
 #include <stdio.h>
 #include <string>
@@ -54,8 +55,18 @@ int BPFConnectionTracker::handle_event(void* data, size_t data_sz) {
 
     std::array<char, 16> comm;
     std::copy(e->comm, e->comm+16, comm.begin());
+    std::vector<std::string> cmdline;
+    
+    int last_pos = 0;
+    for(int i=0; i != std::min(MAX_CMDLINE_SIZE, e->cmdline_size); i++) {
+        if(e->cmdline[i] == 0) {
+            cmdline.push_back(std::string(e->cmdline+last_pos, e->cmdline+i));
+            last_pos = i+1;
+        }
+    }
+
     // TODO convert boottime to approximate wall clock timestamp by adding btime from /proc/stat
-    ConnectionEvent event(e->pid, comm, e->sock_type, target->clone(), e->boottime);
+    ConnectionEvent event(e->pid, comm, e->sock_type, target->clone(), e->boottime, cmdline);
 
     publish(event);
 

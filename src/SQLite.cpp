@@ -28,16 +28,6 @@ int SQLite::checkSqliteErr(int result) {
     return result;
 }
 
-int SQLite::stepUntilDone(sqlite3_stmt* stmt) {
-    while(true) {
-        int result = sqlite3_step(stmt);
-        if(result == SQLITE_OK || result == SQLITE_DONE || result == SQLITE_EMPTY) {
-            return result;
-        }
-        checkSqliteErr(result);
-    }
-}
-
 std::pair<SQLiteStatement, std::string_view> SQLite::prepareOne(std::string_view view) {
     sqlite3_stmt* sql_stmt;
     const char* tail;
@@ -180,19 +170,26 @@ bool SQLiteResult::next() {
     return false;
 }
 
-std::optional<std::string> SQLiteResult::getString(int col) { 
+bool SQLiteResult::checkNullOrInvalidType(int sqliteType, int col) {
     auto type = sqlite3_column_type(stmt.get(), col);
-    checkSqliteErr(type);
+    checkSqliteErr(sqlite3_errcode(sqlite3_db_handle(stmt.get())));
     if(type == SQLITE_NULL) {
-        return std::optional<std::string>();
-    } else if(type != SQLITE_TEXT) {
+        return true;
+    } else if(type != sqliteType) {
         throw SQLiteException("invalid type " + std::to_string(type) + " for column " + std::to_string(col));
+    }
+    return false;
+}
+
+std::optional<std::string> SQLiteResult::getString(int col) { 
+    if(checkNullOrInvalidType(SQLITE_TEXT, col)) {
+        return std::optional<std::string>();
     }
 
     const char* data = (const char*)sqlite3_column_text(stmt.get(), col);
     if(data == nullptr) {
         checkSqliteErr(sqlite3_errcode(sqlite3_db_handle(stmt.get())));
-        throw SQLiteException("sqlite_column_text returned null but type was not null " + std::to_string(type));
+        throw SQLiteException("sqlite_column_text returned null but type was not null");
     }
     int len = sqlite3_column_bytes(stmt.get(), col);
     std::string result(data, len); 
@@ -200,18 +197,14 @@ std::optional<std::string> SQLiteResult::getString(int col) {
 }
 
 std::optional<std::vector<unsigned char>> SQLiteResult::getBlob(int col) {
-    auto type = sqlite3_column_type(stmt.get(), col);
-    checkSqliteErr(type);
-    if(type == SQLITE_NULL) {
+    if(checkNullOrInvalidType(SQLITE_BLOB, col)) {
         return std::optional<std::vector<unsigned char>>();
-    } else if(type != SQLITE_BLOB) {
-        throw SQLiteException("invalid type " + std::to_string(type) + " for column " + std::to_string(col));
     }
 
     const char* data = (const char*)sqlite3_column_blob(stmt.get(), col);
     if(data == nullptr) {
         checkSqliteErr(sqlite3_errcode(sqlite3_db_handle(stmt.get())));
-        throw SQLiteException("sqlite_column_blob returned null but type was not null " + std::to_string(type));
+        throw SQLiteException("sqlite_column_blob returned null but type was not null");
     }
     int len = sqlite3_column_bytes(stmt.get(), col);
     std::vector<unsigned char> result(data, data+len); 
@@ -219,40 +212,28 @@ std::optional<std::vector<unsigned char>> SQLiteResult::getBlob(int col) {
 }
 
 std::optional<int> SQLiteResult::getInt(int col) {
-    auto type = sqlite3_column_type(stmt.get(), col);
-    if(type == SQLITE_NULL) {
+    if(checkNullOrInvalidType(SQLITE_INTEGER, col)) {
         return std::optional<int>();
-    } else if(type != SQLITE_INTEGER) {
-        throw SQLiteException("invalid type " + std::to_string(type) + " for column " + std::to_string(col));
     }
-
     return sqlite3_column_int(stmt.get(), col);
 }
 
 std::optional<long> SQLiteResult::getLong(int col) {
-    auto type = sqlite3_column_type(stmt.get(), col);
-    if(type == SQLITE_NULL) {
+    if(checkNullOrInvalidType(SQLITE_INTEGER, col)) {
         return std::optional<long>();
-    } else if(type != SQLITE_INTEGER) {
-        throw SQLiteException("invalid type " + std::to_string(type) + " for column " + std::to_string(col));
     }
-
     return sqlite3_column_int64(stmt.get(), col);
 }
 
 std::optional<double> SQLiteResult::getDouble(int col) {
-    auto type = sqlite3_column_type(stmt.get(), col);
-    if(type == SQLITE_NULL) {
+    if(checkNullOrInvalidType(SQLITE_FLOAT, col)) {
         return std::optional<double>();
-    } else if(type != SQLITE_FLOAT) {
-        throw SQLiteException("invalid type " + std::to_string(type) + " for column " + std::to_string(col));
     }
-
     return sqlite3_column_double(stmt.get(), col);
 }
 
 int SQLiteResult::checkSqliteErr(int result) {
-    if(result != SQLITE_OK && result != SQLITE_DONE) {
+    if(result != SQLITE_OK && result != SQLITE_DONE && result != SQLITE_ROW) {
         throw SQLiteException(result, sqlite3_errmsg(sqlite3_db_handle(stmt.get())));
     }
     return result;

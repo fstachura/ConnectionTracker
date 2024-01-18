@@ -31,7 +31,7 @@ SQLiteLogStorage::SQLiteLogStorage(std::string path): db(path) {
 }
 
 void SQLiteLogStorage::createDb() {
-    db.prepareOne(DB_INSERT_CONNECTION).first.exec();
+    db.prepareOne(DB_INIT_SQL).first.exec();
 }
 
 void SQLiteLogStorage::logConnection(ConnectionEvent event) {

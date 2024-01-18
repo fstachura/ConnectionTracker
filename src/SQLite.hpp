@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <iostream>
 #include <exception>
 #include <string>
 #include <memory>
@@ -23,7 +24,6 @@ class SQLite {
     std::shared_ptr<sqlite3> db;
 
     int checkSqliteErr(int result);
-    int stepUntilDone(sqlite3_stmt* stmt);
 public:
     SQLite(std::string path);
     std::vector<SQLiteStatement> prepare(std::string stmt);
@@ -41,6 +41,16 @@ class SQLiteStatement {
     SQLiteStatement(std::shared_ptr<sqlite3> db, std::shared_ptr<sqlite3_stmt> stmt);
     int checkSqliteErr(int result);
     void checkIfBusy();
+
+    template<typename T, typename... Args>
+    SQLiteStatement& bindWithParam(int param, T arg, Args... args) {
+        return this->bind(param, arg).bindWithParam(param+1, args...);
+    }
+
+    template<typename T>
+    SQLiteStatement& bindWithParam(int param, T arg) {
+        return this->bind(param, arg);
+    }
 public:
     template<typename T>
     SQLiteStatement& bind(std::string param, T data) {
@@ -59,6 +69,11 @@ public:
     SQLiteStatement& bind(int param, std::nullptr_t);
     void exec();
     SQLiteResult getResults();
+
+    template<typename T, typename... Args>
+    SQLiteStatement& bindMany(T arg, Args... args) {
+        return bindWithParam(1, arg, args...);
+    }
 };
 
 class SQLiteResult {
@@ -67,6 +82,7 @@ class SQLiteResult {
     friend class SQLiteStatement; 
     SQLiteResult(std::shared_ptr<sqlite3_stmt> stmt);
     int checkSqliteErr(int result);
+    bool checkNullOrInvalidType(int sqliteType, int col);
 public:
     bool next();
 
@@ -77,4 +93,50 @@ public:
     std::optional<double> getDouble(int col);
 
     ~SQLiteResult();
+};
+
+template<typename... T>
+class SQLiteTypedResult {
+    SQLiteResult result;
+
+    template<typename Q, typename... Args> 
+    std::tuple<std::optional<Q>, std::optional<Args>...> get(int col) {
+        return std::tuple_cat(get<Q>(col), get<Args...>(col+1));
+    }
+
+    template<>
+    std::tuple<std::optional<std::string>> get(int col) {
+        return result.getString(col);
+    }
+
+    template<>
+    std::tuple<std::optional<std::vector<unsigned char>>> get(int col) {
+        return result.getBlob(col);
+    }
+
+    template<>
+    std::tuple<std::optional<int>> get(int col) {
+        return result.getInt(col);
+    }
+
+    template<>
+    std::tuple<std::optional<long>> get(int col) {
+        return result.getLong(col);
+    }
+
+    template<>
+    std::tuple<std::optional<double>> get(int col) {
+        return result.getDouble(col);
+    }
+
+public:
+    SQLiteTypedResult(SQLiteResult arg): result(arg) {}
+
+    bool next() {
+        return result.next();
+    }
+
+    std::tuple<std::optional<T>...> get() {
+        return get<T...>(0);
+    }
 };

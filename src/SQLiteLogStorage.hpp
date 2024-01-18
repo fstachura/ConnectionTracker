@@ -11,8 +11,6 @@ class SQLiteLogStorage: public LogStorage {
     std::optional<SQLiteStatement> insertStmt;
 
     void createDb();
-    int checkSqliteErr(int result);
-    int stepUntilDone(sqlite3_stmt* stmt);
 public:
     SQLiteLogStorage(std::string path);
     virtual void logConnection(ConnectionEvent event);
