@@ -1,17 +1,25 @@
 #include <chrono>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <stdio.h>
+#include <system_error>
 #include <thread>
 #include <unistd.h>
+#include <dirent.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/types.h>
+#include <liburing.h>
 #include "BPFConnectionTracker.hpp"
 #include "Address.hpp"
 #include "ConnectionTracker.hpp"
 #include "LogStorage.hpp"
 #include "SQLite.hpp"
 #include "SQLiteLogStorage.hpp"
+#include "Socket.hpp"
 
 typedef unsigned long long u64;
 
@@ -55,6 +63,9 @@ public:
 int main() {
     auto storage = std::make_unique<SQLiteLogStorage>("/tmp/connectiontracker.sqlite");
     auto storageSubscriber = std::make_shared<LogStorageConnectionSubscriber>(std::move(storage));
+
+    //Socket socket;
+    //socket.start();
 
     auto tracker = BPFConnectionTracker();
     tracker.subscribe(std::make_shared<StdoutConnectionSubsciber>());

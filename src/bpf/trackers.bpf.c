@@ -33,6 +33,7 @@ int BPF_PROG(socket_connect_tracker, struct socket *sock, struct sockaddr* addre
             return -ENOBUFS;
         }
         if(reserve_ptr->sockaddr.sa_family == 0) {  // AF_UNSPEC
+            //bpf_printk("%d %d\n", sock->sk->sk_type, sock->sk->sk_protocol);
             bpf_ringbuf_discard(reserve_ptr, 0);
             return ret;
         }
